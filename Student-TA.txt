@@ -1,0 +1,163 @@
+#include <pthread.h>
+#include <stdio.h>
+
+
+void *sleepingta(void *);
+void *student(void *param);
+void wait(int sema, int param);
+void signal(int sema, int param);
+
+int flag=0;
+
+#define SLEEP 0
+#define WAKEUP 1
+
+int semaphore = 1;
+int MAX, TA, TTL;
+int ENDOFPROGRAM=0;
+int curstudent=0;
+int waitinglist=0;
+int numStudents;
+
+int main(int argc, char *argv[])  {
+  int numberofChairs=3;
+
+  printf("Enter number of students\n");
+  scanf("%d" ,&numStudents);
+
+  printf("%d", numStudents);
+
+  if(numStudents > 100) {
+     printf("Please input number of students less than 100\n");
+     return 0;
+  }
+
+  int students[ numStudents ];
+  printf("size of students %d\n", numStudents);
+
+  int d;
+  for (d = 0; d < numStudents; d++) {
+      printf("Element = %d\n", d);
+      students[ d] = d;
+  }
+
+  for (int s = 0; s < numStudents; s++) {
+      printf("Element[%d] = %d\n", s, students[s]);
+  }
+
+  
+
+   pthread_t TAid;
+   pthread_t studentId[100];
+
+   int param = 0;
+  //Creating TA thread
+  sleep(1);
+  pthread_create(&TAid, NULL, sleepingta, (void *)param);
+
+  //Creating student thread
+  for(int k=0; k<numStudents; k++) {
+      sleep(1);
+      pthread_create(&studentId[k], NULL, student, (void *)students[k]);
+  }
+
+  for(int l=0; l<numStudents; l++)
+  {
+    pthread_join(studentId[l],NULL);
+  }
+
+  return 0;
+
+
+}
+
+void wait(int sema, int param) {
+
+    while(semaphore <= 0) {
+        printf("sema=%d\n", sema);
+    }
+    if(param == 0) {
+        printf("[SEMAPHORE] TA gets the lock!\n");
+    } else {
+        printf("[SEMAPHORE] Student %d gets the lock!\n",param);
+
+    }
+    semaphore--;
+}
+
+void signal(int sema, int param) {
+
+    if(param == 0) {
+        printf("[SEMAPHORE] TA releases the lock!\n");
+     } else {
+        printf("[SEMAPHORE] Student %d releases the lock!\n",param);
+            if(ENDOFPROGRAM==1) {
+            // Add your logic
+                curstudent--;
+                printf("[TA THREAD] Waiting students = %d, Student in the office = %d\n", waitinglist, curstudent);
+            }
+        waitinglist--;
+     }
+     semaphore++;
+}
+
+void *sleepingta(void *param) {
+
+    printf("[TA THREAD]\n");
+    printf("param = %d\n", param);
+    semaphore++;
+    printf("semaphore = %d\n", semaphore);
+    // Wait & get the lock
+    wait(semaphore, param);
+
+    printf("[TA THREAD] TA is in the office.\n");
+
+    // Release the lock
+    printf("param = %d\n", param);
+    signal(semaphore, param);
+
+    printf("[TA THREAD] Waiting students = %d, Student in the office = %d\n", waitinglist, curstudent);
+
+    while(ENDOFPROGRAM==1) {
+    // Add your logic
+    curstudent--;
+    printf("[TA THREAD] Waiting students = %d, Student in the office = %d\n", waitinglist, curstudent);
+    }
+// End thread
+}
+
+void *student(void *param) {
+
+    printf("[Student THREAD]\n");
+    printf("param = %d\n", param);
+    printf("semaphore = %d\n", semaphore);
+
+    // Wait & get the lock
+    wait(semaphore, param);
+
+   // printf("[STUDENT THREAD] Student %d is coming!\n", param);
+    // Add your logic
+    if (waitinglist > 3) {
+
+    } else {
+        printf("[STUDENT THREAD] Student %d is coming!\n", param);
+        printf("[TA THREAD] Waiting students = %d, Student in the office = %d\n", waitinglist, curstudent);
+        if (curstudent == 0) {
+            printf("[STUDENT THREAD] Student %d wakes up TA and gets help.\n", param);
+            curstudent++;
+        } else {
+            if(numStudents-1 > param) {
+                waitinglist++;
+            } else {
+                ENDOFPROGRAM = 1;
+            }
+            printf("[STUDENT THREAD] Student %d is seating on the waiting chair #%d\n", param, waitinglist);
+            printf("[TA THREAD] Waiting students = %d, Student in the office = %d\n", waitinglist, curstudent);
+            printf("[TA THREAD] TA is helping a student...\n");
+            printf("[TA THREAD] TA is done with the student!\n");
+        }
+    }
+    // Release the lock
+     signal(semaphore, param);
+    // End thread
+}
